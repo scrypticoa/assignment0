@@ -48,7 +48,7 @@ VIRTUAL_WIDTH = 432
 VIRTUAL_HEIGHT = 243
 
 -- paddle movement speed
-PADDLE_SPEED = 400
+PADDLE_SPEED = 200
 AI_SENSITIVITY = .2
 
 --[[
@@ -120,6 +120,7 @@ function love.load()
 
     targety = 121.5
     target_time = 0
+    target_time_delay = .8
     target_active = false
 end
 
@@ -149,8 +150,8 @@ function CalculateTargetY()
     i = 0
     while abs(x_boundary - ball_copy.x) > 2 do
         i = i + 1
-        if (i > 1000000000) then return love.event.quit() end
-        ball_copy:update(.000001)
+        --if (i > 1000000000) then return love.event.quit() end
+        ball_copy:update(.0001)
 
         if ball_copy.y <= 0 then
             ball_copy.y = 0
@@ -242,7 +243,7 @@ function love.update(dt)
                 ball.dy = -ball.dy
                 sounds['wall_hit']:play()
             end
-            
+
             ball:update(dt/1000000)
         end
 
@@ -260,6 +261,7 @@ function love.update(dt)
                 gameState = 'done'
             else
                 gameState = 'serve'
+                target_time_delay = 0.8
                 -- places the ball in the middle of the screen, no velocity
                 ball:reset()
             end
@@ -279,6 +281,7 @@ function love.update(dt)
                 gameState = 'done'
             else
                 gameState = 'serve'
+                target_time_delay = 0.8
                 -- places the ball in the middle of the screen, no velocity
                 ball:reset()
             end
@@ -294,22 +297,23 @@ function love.update(dt)
         target_time = target_time - dt
         if target_time <= 0 then
             targety = CalculateTargetY()
-            target_time = 0
+            target_time = target_time_delay
+            target_time_delay = target_time_delay - .02
             target_active = false
         end
     else
         if ball.dx < 0 then
-            if abs(player1.y + player1.height/2 - targety) > PADDLE_SPEED * dt - 2 then 
-                --player1.dy = sign(targety-(player1.y + player1.height/2)) * PADDLE_SPEED
-                player1.y = targety - player1.height/2
+            if abs(player1.y + player1.height/2 - targety) > PADDLE_SPEED * dt + 2 then 
+                player1.dy = sign(targety-(player1.y + player1.height/2)) * PADDLE_SPEED
+                --player1.y = targety - player1.height/2
             else
                 player1.dy = 0
             end
         end
         if ball.dx > 0 then
-            if abs(player2.y + player2.height/2 - targety) > PADDLE_SPEED * dt - 2 then 
-                --player2.dy = sign(targety-(player2.y + player2.height/2)) * PADDLE_SPEED
-                player2.y = targety - player2.height/2
+            if abs(player2.y + player2.height/2 - targety) > PADDLE_SPEED * dt + 2 then 
+                player2.dy = sign(targety-(player2.y + player2.height/2)) * PADDLE_SPEED
+                --player2.y = targety - player2.height/2
             else
                 player2.dy = 0
             end
@@ -393,7 +397,6 @@ function love.draw()
             0, 10, VIRTUAL_WIDTH, 'center')
         love.graphics.printf('Serving...', 0, 20, VIRTUAL_WIDTH, 'center')
     elseif gameState == 'play' then
-        love.graphics.printf(targety, 0, 20, VIRTUAL_WIDTH, 'center')
         -- no UI messages to display in play
     elseif gameState == 'done' then
         -- UI messages
