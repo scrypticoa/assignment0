@@ -58,6 +58,7 @@ function Ball:reset()
 end
 
 function Ball:update(dt)
+    if dt == nil then dt = .1 end
     self.x = self.x + self.dx * dt
     self.y = self.y + self.dy * dt
 end

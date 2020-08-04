@@ -48,7 +48,7 @@ VIRTUAL_WIDTH = 432
 VIRTUAL_HEIGHT = 243
 
 -- paddle movement speed
-PADDLE_SPEED = 200
+PADDLE_SPEED = 400
 AI_SENSITIVITY = .2
 
 --[[
@@ -117,6 +117,10 @@ function love.load()
     -- 3. 'play' (the ball is in play, bouncing between paddles)
     -- 4. 'done' (the game is over, with a victor, ready for restart)
     gameState = 'start'
+
+    targety = 121.5
+    target_time = 0
+    target_active = false
 end
 
 --[[
@@ -135,6 +139,34 @@ function abs(val)
     else
         return val
     end
+end
+
+function CalculateTargetY()
+    ball_copy = Ball(ball.x, ball.y, ball.width, ball.height)
+    ball_copy.dx = ball.dx
+    ball_copy.dy = ball.dy
+    if (ball.dx < 0) then x_boundary = player1.x else x_boundary = player2.x end
+    i = 0
+    while abs(x_boundary - ball_copy.x) > 2 do
+        i = i + 1
+        if (i > 1000000000) then return love.event.quit() end
+        ball_copy:update(.000001)
+
+        if ball_copy.y <= 0 then
+            ball_copy.y = 0
+            ball_copy.dy = -ball_copy.dy
+        end
+
+        if ball_copy.y >= VIRTUAL_HEIGHT - 4 then
+            ball_copy.y = VIRTUAL_HEIGHT - 4
+            ball_copy.dy = -ball_copy.dy
+        end
+    end
+    return ball_copy.y
+end
+
+function sign(number)
+    return number > 0 and 1 or (number == 0 and 0 or -1)
 end
 
 --[[
@@ -161,46 +193,57 @@ function love.update(dt)
         -- detect ball collision with paddles, reversing dx if true and
         -- slightly increasing it, then altering the dy based on the position
         -- at which it collided, then playing a sound effect
-        if ball:collides(player1) then
-            ball.dx = -ball.dx * 1.03
-            ball.x = player1.x + 5
 
-            -- keep velocity going in the same direction, but randomize it
-            if ball.dy < 0 then
-                ball.dy = -math.random(10, 150)
-            else
-                ball.dy = math.random(10, 150)
+
+        for i = 1, 1000000, 1 do
+
+            if ball:collides(player1) then
+                ball.dx = -ball.dx * 1.03
+                ball.x = player1.x + 5
+
+                -- keep velocity going in the same direction, but randomize it
+                if ball.dy < 0 then
+                    ball.dy = -math.random(10, 150)
+                else
+                    ball.dy = math.random(10, 150)
+                end
+
+                target_active = true
+
+                sounds['paddle_hit']:play()
+            end
+            if ball:collides(player2) then
+                ball.dx = -ball.dx * 1.03
+                ball.x = player2.x - 4
+
+                -- keep velocity going in the same direction, but randomize it
+                if ball.dy < 0 then
+                    ball.dy = -math.random(10, 150)
+                else
+                    ball.dy = math.random(10, 150)
+                end
+
+                target_active = true
+
+                sounds['paddle_hit']:play()
             end
 
-            sounds['paddle_hit']:play()
-        end
-        if ball:collides(player2) then
-            ball.dx = -ball.dx * 1.03
-            ball.x = player2.x - 4
-
-            -- keep velocity going in the same direction, but randomize it
-            if ball.dy < 0 then
-                ball.dy = -math.random(10, 150)
-            else
-                ball.dy = math.random(10, 150)
+            -- detect upper and lower screen boundary collision, playing a sound
+            -- effect and reversing dy if true
+            if ball.y <= 0 then
+                ball.y = 0
+                ball.dy = -ball.dy
+                sounds['wall_hit']:play()
             end
 
-            sounds['paddle_hit']:play()
-        end
-
-        -- detect upper and lower screen boundary collision, playing a sound
-        -- effect and reversing dy if true
-        if ball.y <= 0 then
-            ball.y = 0
-            ball.dy = -ball.dy
-            sounds['wall_hit']:play()
-        end
-
-        -- -4 to account for the ball's size
-        if ball.y >= VIRTUAL_HEIGHT - 4 then
-            ball.y = VIRTUAL_HEIGHT - 4
-            ball.dy = -ball.dy
-            sounds['wall_hit']:play()
+            -- -4 to account for the ball's size
+            if ball.y >= VIRTUAL_HEIGHT - 4 then
+                ball.y = VIRTUAL_HEIGHT - 4
+                ball.dy = -ball.dy
+                sounds['wall_hit']:play()
+            end
+            
+            ball:update(dt/1000000)
         end
 
         -- if we reach the left edge of the screen, go back to serve
@@ -245,49 +288,45 @@ function love.update(dt)
     --
     -- paddles can move no matter what state we're in
     --
-    -- player 1
-    if player1.y+player1.height/2 > ball.y and player1.y+player1.height/2 - ball.y > AI_SENSITIVITY and ball.dx < 0 then
-        if player1.dy <= 0 and player1.y+player1.height/2 - ball.y < player1.height * (1 / 2) then
-            player1.dy = 0
-        else
-            player1.dy = -PADDLE_SPEED
-        end
-    elseif player1.y+player1.height/2 < ball.y and ball.y - player1.y+player1.height/2 > AI_SENSITIVITY and ball.dx < 0 then
-        if player1.dy >= 0 and ball.y - player1.y+player1.height/2 < player1.height * (1 / 2) then
-            player1.dy = 0
-        else
-            player1.dy = PADDLE_SPEED
-        end
-    else
-        player1.dy = 0
-    end
+    -- player 1 (ai)
 
-    -- player 2 (ai)
-    if player2.y+player2.height/2 > ball.y and player2.y+player2.height/2 - ball.y > AI_SENSITIVITY and ball.dx > 0 then
-        if player2.dy <= 0 and player2.y+player2.height/2 - ball.y < player2.height * (1 / 2) then
-            player2.dy = 0
-        else
-            player2.dy = -PADDLE_SPEED
-        end
-    elseif player2.y+player2.height/2 < ball.y and ball.y - player2.y+player2.height/2 > AI_SENSITIVITY and ball.dx > 0 then
-        if player2.dy >= 0 and ball.y - player2.y+player2.height/2 < player2.height * (1 / 2) then
-            player2.dy = 0
-        else
-            player2.dy = PADDLE_SPEED
+    if target_active == true then
+        target_time = target_time - dt
+        if target_time <= 0 then
+            targety = CalculateTargetY()
+            target_time = 0
+            target_active = false
         end
     else
-        player2.dy = 0
+        if ball.dx < 0 then
+            if abs(player1.y + player1.height/2 - targety) > PADDLE_SPEED * dt - 2 then 
+                --player1.dy = sign(targety-(player1.y + player1.height/2)) * PADDLE_SPEED
+                player1.y = targety - player1.height/2
+            else
+                player1.dy = 0
+            end
+        end
+        if ball.dx > 0 then
+            if abs(player2.y + player2.height/2 - targety) > PADDLE_SPEED * dt - 2 then 
+                --player2.dy = sign(targety-(player2.y + player2.height/2)) * PADDLE_SPEED
+                player2.y = targety - player2.height/2
+            else
+                player2.dy = 0
+            end
+        end
     end
 
     -- update our ball based on its DX and DY only if we're in play state;
     -- scale the velocity by dt so movement is framerate-independent
     if gameState == 'play' then
-        ball:update(dt)
+        
     end
 
     if gameState == 'serve' and serve_timer < 0 then
         serve_timer = 2
         gameState = 'play'
+        target_active = true
+        target_time = 0
     end
 
     player1:update(dt)
@@ -354,6 +393,7 @@ function love.draw()
             0, 10, VIRTUAL_WIDTH, 'center')
         love.graphics.printf('Serving...', 0, 20, VIRTUAL_WIDTH, 'center')
     elseif gameState == 'play' then
+        love.graphics.printf(targety, 0, 20, VIRTUAL_WIDTH, 'center')
         -- no UI messages to display in play
     elseif gameState == 'done' then
         -- UI messages
